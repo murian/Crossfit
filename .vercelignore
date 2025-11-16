@@ -1,0 +1,24 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase (keep these private)
+**/ios/Runner/GoogleService-Info.plist
+**/android/app/google-services.json
+
+# Environment
+.env
+.env.local
