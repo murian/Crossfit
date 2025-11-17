@@ -16,6 +16,9 @@ class ClassCard extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider).value;
     final isBooked = currentUser != null && classModel.participants.contains(currentUser.id);
     final isOnWaitlist = currentUser != null && classModel.waitlist.contains(currentUser.id);
+    final waitlistPosition = isOnWaitlist
+        ? classModel.waitlist.indexOf(currentUser!.id) + 1
+        : 0;
 
     return Card(
       child: InkWell(
@@ -91,11 +94,19 @@ class ClassCard extends ConsumerWidget {
                         color: AppTheme.warningOrange.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        'Waitlist',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppTheme.warningOrange,
-                            ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.schedule, size: 12, color: AppTheme.warningOrange),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Waitlist #$waitlistPosition',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: AppTheme.warningOrange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -164,6 +175,25 @@ class ClassCard extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (classModel.waitlist.isNotEmpty && !isOnWaitlist) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.people_outline,
+                      size: 16,
+                      color: AppTheme.warningOrange,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${classModel.waitlist.length} on waitlist',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.warningOrange,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

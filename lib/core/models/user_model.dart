@@ -16,6 +16,8 @@ class UserModel {
   final Map<String, dynamic>? personalRecords; // PR tracking
   final int totalWorkouts;
   final int attendanceStreak;
+  final String? fcmToken; // Firebase Cloud Messaging token for push notifications
+  final bool notificationsEnabled;
 
   UserModel({
     required this.id,
@@ -31,6 +33,8 @@ class UserModel {
     this.personalRecords,
     this.totalWorkouts = 0,
     this.attendanceStreak = 0,
+    this.fcmToken,
+    this.notificationsEnabled = true,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -54,6 +58,8 @@ class UserModel {
       personalRecords: data['personalRecords'],
       totalWorkouts: data['totalWorkouts'] ?? 0,
       attendanceStreak: data['attendanceStreak'] ?? 0,
+      fcmToken: data['fcmToken'],
+      notificationsEnabled: data['notificationsEnabled'] ?? true,
     );
   }
 
@@ -71,6 +77,8 @@ class UserModel {
       'personalRecords': personalRecords,
       'totalWorkouts': totalWorkouts,
       'attendanceStreak': attendanceStreak,
+      'fcmToken': fcmToken,
+      'notificationsEnabled': notificationsEnabled,
     };
   }
 
@@ -85,6 +93,8 @@ class UserModel {
     Map<String, dynamic>? personalRecords,
     int? totalWorkouts,
     int? attendanceStreak,
+    String? fcmToken,
+    bool? notificationsEnabled,
   }) {
     return UserModel(
       id: id,
@@ -100,6 +110,8 @@ class UserModel {
       personalRecords: personalRecords ?? this.personalRecords,
       totalWorkouts: totalWorkouts ?? this.totalWorkouts,
       attendanceStreak: attendanceStreak ?? this.attendanceStreak,
+      fcmToken: fcmToken ?? this.fcmToken,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     );
   }
 

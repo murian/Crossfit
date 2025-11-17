@@ -1,11 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../models/class_model.dart';
+import 'notification_service.dart';
 
 final classServiceProvider = Provider<ClassService>((ref) => ClassService());
 
 class ClassService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   // Get upcoming classes stream
   Stream<List<ClassModel>> getUpcomingClasses() {
@@ -80,21 +83,23 @@ class ClassService {
   // Cancel a booking
   Future<void> cancelBooking(String classId, String userId) async {
     final docRef = _firestore.collection('classes').doc(classId);
+    String? notifyUserId;
+    ClassModel? classData;
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
       if (!snapshot.exists) throw Exception('Class not found');
 
-      final classData = ClassModel.fromFirestore(snapshot);
+      classData = ClassModel.fromFirestore(snapshot);
 
       // Remove from participants
-      final updatedParticipants = classData.participants.where((id) => id != userId).toList();
+      final updatedParticipants = classData!.participants.where((id) => id != userId).toList();
 
       // If there's a waitlist, move first person to participants
-      final updatedWaitlist = List<String>.from(classData.waitlist);
-      if (updatedWaitlist.isNotEmpty && updatedParticipants.length < classData.maxCapacity) {
-        final nextUser = updatedWaitlist.removeAt(0);
-        updatedParticipants.add(nextUser);
+      final updatedWaitlist = List<String>.from(classData!.waitlist);
+      if (updatedWaitlist.isNotEmpty && updatedParticipants.length < classData!.maxCapacity) {
+        notifyUserId = updatedWaitlist.removeAt(0);
+        updatedParticipants.add(notifyUserId!);
       }
 
       transaction.update(docRef, {
@@ -102,6 +107,45 @@ class ClassService {
         'waitlist': updatedWaitlist,
       });
     });
+
+    // Send notification to the user who got off the waitlist
+    if (notifyUserId != null && classData != null) {
+      await _sendWaitlistNotification(
+        userId: notifyUserId!,
+        classModel: classData!,
+      );
+    }
+  }
+
+  /// Send push notification to user when they get off the waitlist
+  Future<void> _sendWaitlistNotification({
+    required String userId,
+    required ClassModel classModel,
+  }) async {
+    try {
+      // Get user's notification preferences
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) return;
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final notificationsEnabled = userData['notificationsEnabled'] ?? true;
+
+      if (!notificationsEnabled) return;
+
+      // Format class time
+      final formattedTime = DateFormat('EEEE, MMM d @ h:mm a').format(classModel.startTime);
+
+      // Send notification via notification service
+      await _notificationService.sendWaitlistNotification(
+        userId: userId,
+        className: classModel.name,
+        classTime: formattedTime,
+        classId: classModel.id,
+      );
+    } catch (e) {
+      // Log error but don't throw - notification failure shouldn't stop the booking
+      print('Error sending waitlist notification: $e');
+    }
   }
 
   // Remove from waitlist
