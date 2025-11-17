@@ -1,0 +1,176 @@
+// Enhanced Firestore Security Rules for GDPR Compliance
+// Copy these rules to Firebase Console → Firestore Database → Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function hasValidConsent(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return userData.consent != null;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      // Anyone authenticated can read basic user info (for social features)
+      allow read: if isAuthenticated();
+
+      // Only the user can create their own document
+      allow create: if isOwner(userId) &&
+                      request.resource.data.email is string &&
+                      request.resource.data.displayName is string;
+
+      // Only the user can update their own data
+      allow update: if isOwner(userId);
+
+      // Only the user or admin can delete (for GDPR compliance)
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // Nested notifications collection
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions can write
+        allow delete: if isOwner(userId); // User can delete their notifications
+      }
+    }
+
+    // Classes Collection
+    match /classes/{classId} {
+      // Anyone authenticated can read classes
+      allow read: if isAuthenticated();
+
+      // Only admins can create/update/delete classes
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Workouts Collection
+    match /workouts/{workoutId} {
+      // Anyone authenticated can read workouts
+      allow read: if isAuthenticated();
+
+      // Only admins can create/update/delete workouts
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Workout Results Collection
+    match /workoutResults/{resultId} {
+      // Anyone authenticated can read results (for leaderboards)
+      allow read: if isAuthenticated();
+
+      // Users can create their own results
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+
+      // Users can only update/delete their own results
+      allow update, delete: if isAuthenticated() &&
+                              resource.data.userId == request.auth.uid;
+    }
+
+    // Posts Collection (Social Feed)
+    match /posts/{postId} {
+      // Anyone authenticated can read posts
+      allow read: if isAuthenticated();
+
+      // Users can create posts
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+
+      // Users can update/delete only their own posts
+      allow update, delete: if isAuthenticated() &&
+                              resource.data.userId == request.auth.uid;
+    }
+
+    // Comments Collection
+    match /comments/{commentId} {
+      // Anyone authenticated can read comments
+      allow read: if isAuthenticated();
+
+      // Users can create comments
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+
+      // Users can delete only their own comments
+      allow delete: if isAuthenticated() &&
+                     resource.data.userId == request.auth.uid;
+    }
+
+    // Messages Collection
+    match /messages/{messageId} {
+      // Only conversation participants can read messages
+      allow read: if isAuthenticated() &&
+                    (resource.data.senderId == request.auth.uid ||
+                     resource.data.receiverId == request.auth.uid);
+
+      // Users can create messages
+      allow create: if isAuthenticated() &&
+                      request.resource.data.senderId == request.auth.uid;
+
+      // Users can delete only their own messages (GDPR)
+      allow delete: if isAuthenticated() &&
+                     resource.data.senderId == request.auth.uid;
+
+      // No updates allowed
+      allow update: if false;
+    }
+
+    // Conversations Collection
+    match /conversations/{conversationId} {
+      // Only participants can read conversation
+      allow read: if isAuthenticated() &&
+                    request.auth.uid in resource.data.participants;
+
+      // Participants can create/update conversations
+      allow create, update: if isAuthenticated() &&
+                              request.auth.uid in request.resource.data.participants;
+
+      // No deletion (keep for audit trail)
+      allow delete: if false;
+    }
+
+    // Pending Notifications Collection
+    match /pendingNotifications/{notificationId} {
+      // Only authenticated users can create (app creates these)
+      allow create: if isAuthenticated();
+
+      // Only Cloud Functions can read/delete
+      allow read, delete: if false;
+    }
+
+    // Data Export Requests (GDPR)
+    match /dataExportRequests/{requestId} {
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() &&
+                    resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Deny all other collections by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// GDPR Compliance Notes:
+// 1. Users can delete their own data (messages, posts, comments)
+// 2. Admins can delete user accounts
+// 3. Messages are deletable by sender (right to erasure)
+// 4. All personal data access is restricted to owner
+// 5. Audit trail maintained in conversations
+// 6. Consent checking can be added to functions

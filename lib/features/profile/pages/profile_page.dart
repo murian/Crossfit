@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/models/badge_model.dart';
 import '../widgets/notification_settings.dart';
 import '../widgets/language_selector.dart';
+import '../widgets/privacy_settings.dart';
 
 final userWorkoutsProvider = StreamProvider((ref) {
   final currentUser = ref.watch(currentUserProvider).value;
@@ -127,6 +128,10 @@ class ProfilePage extends ConsumerWidget {
 
                   // Language Settings
                   const LanguageSelector(),
+                  const SizedBox(height: 16),
+
+                  // Privacy Settings
+                  const PrivacySettings(),
                   const SizedBox(height: 32),
 
                   // Badges
