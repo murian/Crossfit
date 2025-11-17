@@ -18,6 +18,7 @@ class UserModel {
   final int attendanceStreak;
   final String? fcmToken; // Firebase Cloud Messaging token for push notifications
   final bool notificationsEnabled;
+  final String? preferredLanguage; // 'en' or 'nl'
 
   UserModel({
     required this.id,
@@ -35,6 +36,7 @@ class UserModel {
     this.attendanceStreak = 0,
     this.fcmToken,
     this.notificationsEnabled = true,
+    this.preferredLanguage,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -60,6 +62,7 @@ class UserModel {
       attendanceStreak: data['attendanceStreak'] ?? 0,
       fcmToken: data['fcmToken'],
       notificationsEnabled: data['notificationsEnabled'] ?? true,
+      preferredLanguage: data['preferredLanguage'],
     );
   }
 
@@ -79,6 +82,7 @@ class UserModel {
       'attendanceStreak': attendanceStreak,
       'fcmToken': fcmToken,
       'notificationsEnabled': notificationsEnabled,
+      'preferredLanguage': preferredLanguage,
     };
   }
 
@@ -95,6 +99,7 @@ class UserModel {
     int? attendanceStreak,
     String? fcmToken,
     bool? notificationsEnabled,
+    String? preferredLanguage,
   }) {
     return UserModel(
       id: id,
@@ -112,6 +117,7 @@ class UserModel {
       attendanceStreak: attendanceStreak ?? this.attendanceStreak,
       fcmToken: fcmToken ?? this.fcmToken,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
     );
   }
 

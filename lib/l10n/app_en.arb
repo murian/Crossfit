@@ -1,0 +1,211 @@
+{
+  "@@locale": "en",
+  "appName": "CrossFit Box",
+  "@appName": {
+    "description": "The application name"
+  },
+
+  "welcomeBack": "Welcome Back",
+  "signInToContinue": "Sign in to continue your fitness journey",
+  "email": "Email",
+  "enterEmail": "Enter your email",
+  "password": "Password",
+  "enterPassword": "Enter your password",
+  "forgotPassword": "Forgot Password?",
+  "signIn": "Sign In",
+  "createAccount": "Create Account",
+  "or": "OR",
+
+  "joinTheBox": "Join the Box",
+  "createAccountSubtitle": "Create your account and start training",
+  "fullName": "Full Name",
+  "enterFullName": "Enter your full name",
+  "confirmPassword": "Confirm Password",
+  "reEnterPassword": "Re-enter your password",
+  "alreadyHaveAccount": "Already have an account?",
+
+  "home": "Home",
+  "schedule": "Schedule",
+  "social": "Social",
+  "leaderboard": "Leaderboard",
+  "profile": "Profile",
+  "admin": "Admin",
+
+  "todaysWOD": "Today's WOD",
+  "upcomingClasses": "Upcoming Classes",
+  "viewAll": "View All",
+  "readyToCrushWOD": "Ready to crush today's WOD?",
+
+  "streak": "Streak",
+  "level": "Level",
+  "workouts": "Workouts",
+  "days": "days",
+  "completed": "completed",
+
+  "noWODScheduled": "No WOD scheduled for today",
+  "checkBackLater": "Check back later or contact your coach",
+  "noUpcomingClasses": "No upcoming classes",
+
+  "movements": "Movements",
+  "logWorkout": "Log Workout",
+
+  "booked": "Booked",
+  "waitlist": "Waitlist",
+  "waitlistPosition": "Waitlist #{position}",
+  "@waitlistPosition": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "capacity": "Capacity",
+  "coach": "Coach",
+  "bookClass": "Book Class",
+  "joinWaitlist": "Join Waitlist",
+  "cancelBooking": "Cancel Booking",
+  "peopleOnWaitlist": "{count} on waitlist",
+  "@peopleOnWaitlist": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "noClassesScheduled": "No classes scheduled",
+  "tryDifferentDate": "Try selecting a different date",
+
+  "socialFeed": "Social Feed",
+  "noPostsYet": "No posts yet",
+  "beFirstToShare": "Be the first to share your workout!",
+  "createPost": "Create Post",
+  "shareThoughts": "Share your thoughts...",
+  "post": "Post",
+  "cancel": "Cancel",
+
+  "allTime": "All Time",
+  "monthly": "Monthly",
+  "weekly": "Weekly",
+  "noDataAvailable": "No data available",
+  "xp": "XP",
+
+  "achievements": "Achievements",
+  "noBadgesEarned": "No badges earned yet. Keep training!",
+  "recentWorkouts": "Recent Workouts",
+  "noWorkoutsYet": "No workouts yet",
+  "completeFirstWOD": "Complete your first WOD to get started!",
+  "signOut": "Sign Out",
+
+  "messages": "Messages",
+  "noMessagesYet": "No messages yet",
+  "startConversation": "Start a conversation with someone",
+
+  "notifications": "Notifications",
+  "waitlistNotifications": "Waitlist Notifications",
+  "waitlistNotificationDesc": "Get notified when a spot opens up from the waitlist",
+  "notificationInfo": "You'll receive a push notification when someone cancels and you move from the waitlist to the class.",
+  "notificationsEnabled": "Notifications enabled",
+  "notificationsDisabled": "Notifications disabled",
+
+  "adminDashboard": "Admin Dashboard",
+  "classes": "Classes",
+  "participants": "participants",
+  "deleteClass": "Delete Class",
+  "deleteClassConfirm": "Are you sure you want to delete this class?",
+  "delete": "Delete",
+  "classDeleted": "Class deleted",
+  "createNewClass": "Create New Class",
+  "className": "Class Name",
+  "description": "Description",
+  "selectDate": "Select Date",
+  "create": "Create",
+  "classCreatedSuccessfully": "Class created successfully",
+
+  "noWorkoutsCreated": "No workouts created yet",
+  "addWOD": "Add WOD",
+  "setAsTodaysWOD": "Set as Today's WOD",
+  "setAsWOD": "Set as today's WOD",
+  "createNewWorkout": "Create New Workout",
+  "workoutName": "Workout Name",
+  "workoutCreatedSuccessfully": "Workout created successfully",
+
+  "workoutDetails": "Workout Details",
+  "scalingOptions": "Scaling Options",
+  "logYourResult": "Log Your Result",
+  "result": "Result",
+  "resultPlaceholder": "e.g., 12:34, 150 reps, 225 lbs",
+  "notes": "Notes",
+  "notesOptional": "Notes (optional)",
+  "howDidItFeel": "How did it feel?",
+  "rxd": "RX'd (as prescribed)",
+  "submitResult": "Submit Result",
+  "workoutLogged": "Workout logged! +{xp} XP",
+  "@workoutLogged": {
+    "placeholders": {
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+
+  "settings": "Settings",
+  "language": "Language",
+  "selectLanguage": "Select Language",
+  "english": "English",
+  "dutch": "Nederlands",
+  "languageChanged": "Language changed to {language}",
+  "@languageChanged": {
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+
+  "error": "Error",
+  "success": "Success",
+  "loading": "Loading",
+  "retry": "Retry",
+  "close": "Close",
+  "save": "Save",
+  "confirm": "Confirm",
+
+  "pleaseEnterEmail": "Please enter your email",
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "pleaseEnterPassword": "Please enter your password",
+  "passwordTooShort": "Password must be at least 6 characters",
+  "pleaseEnterName": "Please enter your name",
+  "pleaseConfirmPassword": "Please confirm your password",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "pleaseEnterResult": "Please enter your result",
+
+  "accessDenied": "Access denied. Admin only.",
+  "notLoggedIn": "Not logged in",
+  "errorLoadingProfile": "Error loading profile",
+  "errorLoadingWorkouts": "Error loading workouts",
+  "errorLoadingClasses": "Error loading classes",
+  "errorLoadingWOD": "Error loading WOD",
+  "errorLoadingFeed": "Error loading feed",
+  "errorLoadingLeaderboard": "Error loading leaderboard",
+
+  "classBookedSuccessfully": "Class booked successfully",
+  "addedToWaitlist": "Added to waitlist",
+  "bookingCancelled": "Booking cancelled",
+  "alreadyBooked": "Already booked",
+  "classFull": "Class full",
+  "classNotFound": "Class not found",
+
+  "spotAvailable": "🎉 Spot Available!",
+  "spotAvailableMessage": "A spot opened up for {className} on {classTime}. You've been moved from the waitlist!",
+  "@spotAvailableMessage": {
+    "placeholders": {
+      "className": {
+        "type": "String"
+      },
+      "classTime": {
+        "type": "String"
+      }
+    }
+  }
+}

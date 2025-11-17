@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # Firebase
   firebase_core: ^2.24.2
@@ -42,6 +44,7 @@ dependencies:
   share_plus: ^7.2.1
   url_launcher: ^6.2.3
   connectivity_plus: ^5.0.2
+  shared_preferences: ^2.2.2
 
   # Icons & Animations
   cupertino_icons: ^1.0.6
@@ -58,6 +61,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
 
   assets:
     - assets/images/
