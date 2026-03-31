@@ -66,12 +66,15 @@ BORDER_SIDE = round(0.5 * CM_TO_INCH * DPI)      # ~59px
 BORDER_BOTTOM = round(3.2 * CM_TO_INCH * DPI)    # ~378px (room for mini-map)
 
 # Mini-map settings
-MAP_W = 220
-MAP_H = 165
+MAP_DIAMETER = 200   # circular map diameter in pixels
 MAP_ZOOM = 11
 MAP_PADDING = round(0.2 * CM_TO_INCH * DPI)      # padding inside bottom border
-MAP_BORDER_PX = 2
+MAP_BORDER_PX = 3
 MAP_BORDER_COLOR = (210, 210, 210)
+
+# Fixed font sizes (in points at 300 DPI) — consistent across all photos
+FONT_SIZE_LOCATION = 48
+FONT_SIZE_DATE = 38
 
 # Supported image extensions
 SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp',
@@ -331,8 +334,17 @@ class GeocodingCache:
 _map_cache = {}
 
 
+def _make_circle_mask(diameter):
+    """Return an L-mode image with an anti-aliased circle mask."""
+    # Render at 2x then downscale for smooth edges
+    big = diameter * 2
+    mask = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, big - 1, big - 1), fill=255)
+    return mask.resize((diameter, diameter), Image.LANCZOS)
+
+
 def _generate_map(lat, lon):
-    """Return a small PIL Image with a map centered on (lat, lon), or None."""
+    """Return a circular PIL Image with a map centered on (lat, lon), or None."""
     if not STATICMAP_AVAILABLE:
         return None
 
@@ -341,24 +353,32 @@ def _generate_map(lat, lon):
         return _map_cache[cache_key].copy()
 
     try:
-        m = StaticMap(MAP_W, MAP_H)
+        # Render a square map large enough for the circle
+        size = MAP_DIAMETER
+        m = StaticMap(size, size)
         marker = CircleMarker((lon, lat), "#e74c3c", 8)
         m.add_marker(marker)
-        map_img = m.render(zoom=MAP_ZOOM)
-        map_img = map_img.convert("RGB")
-        _map_cache[cache_key] = map_img
-        return map_img.copy()
+        map_img = m.render(zoom=MAP_ZOOM).convert("RGBA")
+
+        # Apply circular mask
+        mask = _make_circle_mask(size)
+        result = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+        result.paste(map_img, (0, 0), mask)
+
+        # Draw circular border ring
+        border_overlay = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        bd = ImageDraw.Draw(border_overlay)
+        for i in range(MAP_BORDER_PX):
+            bd.ellipse(
+                (i, i, size - 1 - i, size - 1 - i),
+                outline=MAP_BORDER_COLOR + (255,),
+            )
+        result = Image.alpha_composite(result, border_overlay)
+
+        _map_cache[cache_key] = result
+        return result.copy()
     except Exception:
         return None
-
-
-def _add_map_border(map_img):
-    """Return a new image with a thin border drawn around *map_img*."""
-    w, h = map_img.size
-    bordered = Image.new("RGB", (w + 2 * MAP_BORDER_PX, h + 2 * MAP_BORDER_PX),
-                         MAP_BORDER_COLOR)
-    bordered.paste(map_img, (MAP_BORDER_PX, MAP_BORDER_PX))
-    return bordered
 
 
 # =============================================================================
@@ -437,46 +457,38 @@ def resolve_font(font_option_index):
 # Polaroid Creator
 # =============================================================================
 
-def _fit_text_font(draw, text, font_path, max_width, max_height):
-    """Return an ImageFont that fits *text* within the given bounds."""
-    font_size = int(max_height)
-    font = None
+# Font cache: (path, size) -> ImageFont
+_font_cache = {}
 
+
+def _load_font(font_path, size):
+    """Return an ImageFont at a fixed *size*. Results are cached."""
+    key = (font_path, size)
+    if key in _font_cache:
+        return _font_cache[key]
+
+    font = None
     if font_path:
-        while font_size > 8:
-            try:
-                candidate = ImageFont.truetype(font_path, font_size)
-                bbox = draw.textbbox((0, 0), text, font=candidate)
-                tw = bbox[2] - bbox[0]
-                th = bbox[3] - bbox[1]
-                if tw <= max_width and th <= max_height:
-                    font = candidate
-                    break
-                font_size -= 1
-            except Exception:
-                font_size -= 1
+        try:
+            font = ImageFont.truetype(font_path, size)
+        except Exception:
+            pass
 
     if font is None:
-        # Last-resort fallback: try common system fonts at a visible size
-        fallback_size = max(36, int(max_height * 0.5))
-        fallback_names = [
-            "arial.ttf", "Arial.ttf",
-            "DejaVuSans.ttf", "LiberationSans-Regular.ttf",
-            "Helvetica.ttc", "Times New Roman.ttf",
-        ]
-        for fb_name in fallback_names:
+        for fb in ["arial.ttf", "Arial.ttf", "DejaVuSans.ttf",
+                    "LiberationSans-Regular.ttf", "Helvetica.ttc"]:
             try:
-                font = ImageFont.truetype(fb_name, fallback_size)
+                font = ImageFont.truetype(fb, size)
                 break
             except OSError:
                 continue
-        if font is None:
-            # Pillow 10.1+ supports size parameter on load_default
-            try:
-                font = ImageFont.load_default(size=fallback_size)
-            except TypeError:
-                font = ImageFont.load_default()
+    if font is None:
+        try:
+            font = ImageFont.load_default(size=size)
+        except TypeError:
+            font = ImageFont.load_default()
 
+    _font_cache[key] = font
     return font
 
 
@@ -568,75 +580,68 @@ def create_polaroid(image_path, output_path, font_path, geocoding_cache,
     canvas = Image.new("RGB", (canvas_w, canvas_h), BG_COLOR)
     canvas.paste(img, (BORDER_SIDE, BORDER_TOP))
 
-    # --- Draw bottom area: map + text ------------------------------------
+    # --- Resolve fixed-size fonts (same across all photos) ----------------
+    loc_font = _load_font(font_path, FONT_SIZE_LOCATION)
+    date_font = _load_font(font_path, FONT_SIZE_DATE)
+
+    # --- Draw bottom area: circular map + text ---------------------------
     map_img = None
     if lat is not None and lon is not None:
         map_img = _generate_map(lat, lon)
-        if map_img is not None:
-            map_img = _add_map_border(map_img)
 
     draw = ImageDraw.Draw(canvas)
-    bottom_top = canvas_h - BORDER_BOTTOM  # y where bottom border starts
+    bottom_top = canvas_h - BORDER_BOTTOM
 
-    if map_img is not None and text:
-        # Layout: map on the left, text (location line + date line) on right
+    loc_str = location or ""
+    date_str = date_taken or ""
+
+    if map_img is not None:
         mw, mh = map_img.size
         map_x = BORDER_SIDE + MAP_PADDING
         map_y = bottom_top + (BORDER_BOTTOM - mh) // 2
-        canvas.paste(map_img, (map_x, map_y))
+        # Paste with alpha channel for circular transparency
+        canvas.paste(map_img, (map_x, map_y), map_img)
 
-        # Text area is to the right of the map
-        text_area_left = map_x + mw + MAP_PADDING
-        text_area_right = canvas_w - BORDER_SIDE - MAP_PADDING
-        text_area_w = text_area_right - text_area_left
+        # Text to the right of the map
+        text_left = map_x + mw + MAP_PADDING
+        text_right = canvas_w - BORDER_SIDE - MAP_PADDING
+        text_w = text_right - text_left
 
-        # Draw location and date as separate lines
-        loc_str = location or ""
-        date_str = date_taken or ""
-
-        # Fit location font
-        max_line_h = int(BORDER_BOTTOM * 0.22)
-        loc_font = _fit_text_font(draw, loc_str, font_path,
-                                  text_area_w, max_line_h) if loc_str else None
-        date_font = _fit_text_font(draw, date_str, font_path,
-                                   text_area_w, max_line_h) if date_str else None
-
-        # Measure
         lines = []
-        if loc_str and loc_font:
+        if loc_str:
             bb = draw.textbbox((0, 0), loc_str, font=loc_font)
             lines.append((loc_str, loc_font, bb[2] - bb[0], bb[3] - bb[1]))
-        if date_str and date_font:
+        if date_str:
             bb = draw.textbbox((0, 0), date_str, font=date_font)
             lines.append((date_str, date_font, bb[2] - bb[0], bb[3] - bb[1]))
 
-        line_gap = 10
-        total_text_h = sum(l[3] for l in lines) + line_gap * (len(lines) - 1)
-        cur_y = bottom_top + (BORDER_BOTTOM - total_text_h) // 2
+        line_gap = 12
+        total_h = sum(h for *_, h in lines) + line_gap * max(len(lines) - 1, 0)
+        cur_y = bottom_top + (BORDER_BOTTOM - total_h) // 2
 
         for txt, fnt, tw, th in lines:
-            tx = text_area_left + (text_area_w - tw) // 2
+            tx = text_left + (text_w - tw) // 2
             draw.text((tx, cur_y), txt, fill=TEXT_COLOR, font=fnt)
             cur_y += th + line_gap
 
-    elif map_img is not None:
-        # Map only, no text - center the map
-        mw, mh = map_img.size
-        map_x = (canvas_w - mw) // 2
-        map_y = bottom_top + (BORDER_BOTTOM - mh) // 2
-        canvas.paste(map_img, (map_x, map_y))
+    elif loc_str or date_str:
+        # No map — center text only
+        lines = []
+        if loc_str:
+            bb = draw.textbbox((0, 0), loc_str, font=loc_font)
+            lines.append((loc_str, loc_font, bb[2] - bb[0], bb[3] - bb[1]))
+        if date_str:
+            bb = draw.textbbox((0, 0), date_str, font=date_font)
+            lines.append((date_str, date_font, bb[2] - bb[0], bb[3] - bb[1]))
 
-    elif text:
-        # Text only, no map - center text
-        max_text_h = int(BORDER_BOTTOM * 0.35)
-        max_text_w = int(photo_w * 0.95)
-        font = _fit_text_font(draw, text, font_path, max_text_w, max_text_h)
-        bbox = draw.textbbox((0, 0), text, font=font)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        text_x = (canvas_w - tw) // 2
-        text_y = bottom_top + (BORDER_BOTTOM - th) // 2
-        draw.text((text_x, text_y), text, fill=TEXT_COLOR, font=font)
+        line_gap = 12
+        total_h = sum(h for *_, h in lines) + line_gap * max(len(lines) - 1, 0)
+        cur_y = bottom_top + (BORDER_BOTTOM - total_h) // 2
+
+        for txt, fnt, tw, th in lines:
+            tx = (canvas_w - tw) // 2
+            draw.text((tx, cur_y), txt, fill=TEXT_COLOR, font=fnt)
+            cur_y += th + line_gap
 
     # --- Save ------------------------------------------------------------
     canvas.save(output_path, "JPEG", quality=quality, dpi=(DPI, DPI))
