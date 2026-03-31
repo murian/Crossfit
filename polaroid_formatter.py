@@ -379,11 +379,25 @@ def _fit_text_font(draw, text, font_path, max_width, max_height):
                 font_size -= 1
 
     if font is None:
-        # Last-resort fallback
-        try:
-            font = ImageFont.truetype("arial.ttf", 36)
-        except OSError:
-            font = ImageFont.load_default()
+        # Last-resort fallback: try common system fonts at a visible size
+        fallback_size = max(36, int(max_height * 0.5))
+        fallback_names = [
+            "arial.ttf", "Arial.ttf",
+            "DejaVuSans.ttf", "LiberationSans-Regular.ttf",
+            "Helvetica.ttc", "Times New Roman.ttf",
+        ]
+        for fb_name in fallback_names:
+            try:
+                font = ImageFont.truetype(fb_name, fallback_size)
+                break
+            except OSError:
+                continue
+        if font is None:
+            # Pillow 10.1+ supports size parameter on load_default
+            try:
+                font = ImageFont.load_default(size=fallback_size)
+            except TypeError:
+                font = ImageFont.load_default()
 
     return font
 
@@ -399,6 +413,9 @@ def create_polaroid(image_path, output_path, font_path, geocoding_cache,
     except Exception as e:
         return False, f"Cannot open: {e}"
 
+    # --- Extract EXIF metadata BEFORE transpose (which strips EXIF) ------
+    exif_data = get_exif_data(img)
+
     # Honour EXIF orientation
     try:
         img = ImageOps.exif_transpose(img)
@@ -408,9 +425,6 @@ def create_polaroid(image_path, output_path, font_path, geocoding_cache,
     # Convert to RGB (handles RGBA, palette, etc.)
     if img.mode != "RGB":
         img = img.convert("RGB")
-
-    # --- Extract EXIF metadata -------------------------------------------
-    exif_data = get_exif_data(img)
 
     lat, lon = get_gps_coordinates(exif_data)
     location = (
