@@ -1,331 +1,172 @@
-# CrossFit Box App 🏋️
+# Polaroid Photo Formatter
 
-A modern, full-featured CrossFit box management application built with Flutter and Firebase. This app runs on iOS, Android, and Web platforms.
+Transform your photos into classic **Polaroid format** (10 cm x 15 cm at 300 DPI) with the **location** and **date** automatically extracted from the photo's EXIF metadata and printed on the white bottom border.
 
-## 🌟 Features
-
-### User Features
-- **Authentication**: Secure sign-up and login with email/password
-- **Class Scheduling**: Browse and book classes with a beautiful calendar interface
-- **Workout of the Day (WOD)**: View daily workouts and log your results
-- **Social Feed**: Share workout results, achievements, and interact with other members
-- **Gamification**: Earn XP, level up, unlock badges, and compete on leaderboards
-- **Direct Messaging**: Chat with other box members
-- **Profile & Progress**: Track your stats, streaks, PRs, and achievements
-- **Waitlist Management**: Automatic waitlist for full classes
-
-### Admin Features
-- **Class Management**: Create, edit, and manage classes
-- **WOD Creation**: Design and publish Workouts of the Day
-- **Attendance Tracking**: View participant lists and capacity management
-- **Configurable Limits**: Easily adjust class capacity (default: 16)
-
-### Gamification System
-- **XP & Levels**: Earn experience points and level up
-- **Badges**: 15+ unique achievements to unlock
-- **Leaderboards**: Weekly, monthly, and all-time rankings
-- **Streaks**: Track consecutive workout days
-- **Personal Records**: Log and track your PRs
-
-## 🎨 Design
-
-The app features a **modern 2025 design** with:
-- **Color Scheme**: Bold yellow (#FFC107) and deep black (#0A0A0A)
-- **Material Design 3**: Latest design system with glassmorphism effects
-- **Dark Theme**: Eye-friendly dark mode by default
-- **Responsive**: Optimized for all screen sizes
-- **Animations**: Smooth transitions and engaging micro-interactions
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Flutter SDK**: Version 3.2.0 or higher
-- **Firebase Account**: For backend services
-- **IDE**: VS Code or Android Studio
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd crossfit_box
-   ```
-
-2. **Install dependencies**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Set up Firebase**
-
-   a. Install FlutterFire CLI:
-   ```bash
-   dart pub global activate flutterfire_cli
-   ```
-
-   b. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-
-   c. Configure Firebase for your app:
-   ```bash
-   flutterfire configure
-   ```
-
-   This will automatically generate the `lib/firebase_options.dart` file with your Firebase configuration.
-
-4. **Enable Firebase Services**
-
-   In your Firebase Console, enable:
-   - **Authentication** → Email/Password provider
-   - **Firestore Database** → Start in production mode
-   - **Storage** → Start in production mode
-   - **Cloud Functions** (optional, for advanced features)
-
-5. **Configure Firestore Security Rules**
-
-   In Firestore, add these security rules:
-
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       // Users collection
-       match /users/{userId} {
-         allow read: if request.auth != null;
-         allow write: if request.auth.uid == userId;
-       }
-
-       // Classes collection
-       match /classes/{classId} {
-         allow read: if request.auth != null;
-         allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-         allow update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-       }
-
-       // Workouts collection
-       match /workouts/{workoutId} {
-         allow read: if request.auth != null;
-         allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-       }
-
-       // Workout Results
-       match /workoutResults/{resultId} {
-         allow read: if request.auth != null;
-         allow create: if request.auth != null;
-         allow update, delete: if request.auth.uid == resource.data.userId;
-       }
-
-       // Posts (Social)
-       match /posts/{postId} {
-         allow read: if request.auth != null;
-         allow create: if request.auth != null;
-         allow update, delete: if request.auth.uid == resource.data.userId;
-       }
-
-       // Comments
-       match /comments/{commentId} {
-         allow read: if request.auth != null;
-         allow create: if request.auth != null;
-         allow delete: if request.auth.uid == resource.data.userId;
-       }
-
-       // Messages
-       match /messages/{messageId} {
-         allow read: if request.auth != null && request.auth.uid in resource.data.participants;
-         allow create: if request.auth != null;
-       }
-
-       // Conversations
-       match /conversations/{conversationId} {
-         allow read: if request.auth != null && request.auth.uid in resource.data.participants;
-         allow create, update: if request.auth != null;
-       }
-     }
-   }
-   ```
-
-6. **Create an Admin User**
-
-   After creating your first account, manually update your user document in Firestore:
-   - Go to Firestore Database → `users` collection
-   - Find your user document
-   - Change the `role` field from `member` to `admin`
-
-7. **Run the app**
-
-   For web:
-   ```bash
-   flutter run -d chrome
-   ```
-
-   For iOS:
-   ```bash
-   flutter run -d ios
-   ```
-
-   For Android:
-   ```bash
-   flutter run -d android
-   ```
-
-## 📱 Platform-Specific Setup
-
-### iOS
-
-1. Navigate to `ios/` directory and install pods:
-   ```bash
-   cd ios
-   pod install
-   cd ..
-   ```
-
-2. Set minimum iOS deployment target to 12.0 in `ios/Podfile`:
-   ```ruby
-   platform :ios, '12.0'
-   ```
-
-### Android
-
-1. Update `android/app/build.gradle`:
-   ```gradle
-   minSdkVersion 21
-   targetSdkVersion 33
-   ```
-
-### Web
-
-1. Ensure you have enabled Firebase Hosting in your Firebase Console
-2. Update `web/index.html` if needed for custom configuration
-
-## 🏗️ Project Structure
-
-```
-lib/
-├── core/
-│   ├── models/          # Data models
-│   ├── services/        # Firebase services
-│   ├── router/          # Navigation
-│   └── theme/           # App theming
-├── features/
-│   ├── auth/            # Authentication
-│   ├── home/            # Home page
-│   ├── schedule/        # Class scheduling
-│   ├── workout/         # Workout details
-│   ├── social/          # Social feed
-│   ├── leaderboard/     # Rankings
-│   ├── profile/         # User profile
-│   ├── messaging/       # Direct messages
-│   └── admin/           # Admin dashboard
-└── main.dart            # App entry point
-```
-
-## 🎯 Key Technologies
-
-- **Flutter**: Cross-platform framework
-- **Firebase Auth**: User authentication
-- **Cloud Firestore**: Real-time database
-- **Firebase Storage**: File storage
-- **Riverpod**: State management
-- **GoRouter**: Navigation
-- **Google Fonts**: Inter font family
-- **Material Design 3**: Modern UI components
-
-## 🔧 Configuration
-
-### Adjusting Class Capacity
-
-The default class capacity is 16 students. To change this:
-
-1. **Default for new classes**: Edit `lib/core/models/class_model.dart`:
-   ```dart
-   this.maxCapacity = 16, // Change this number
-   ```
-
-2. **For existing classes**: Admins can update capacity in the Admin Dashboard
-
-### Customizing Colors
-
-Edit `lib/core/theme/app_theme.dart` to customize:
-- Primary yellow color
-- Background blacks
-- Accent colors
-- Typography
-
-## 📊 Database Collections
-
-### Firestore Structure
-
-- **users**: User profiles, XP, levels, badges
-- **classes**: Class schedules, participants, waitlists
-- **workouts**: WOD definitions
-- **workoutResults**: User workout submissions
-- **posts**: Social feed posts
-- **comments**: Comments on posts
-- **messages**: Direct messages
-- **conversations**: Message threads
-
-## 🚀 Deployment
-
-### Web
-
-```bash
-flutter build web
-firebase deploy --only hosting
-```
-
-### iOS
-
-```bash
-flutter build ios --release
-# Then use Xcode to upload to App Store
-```
-
-### Android
-
-```bash
-flutter build appbundle --release
-# Upload to Google Play Console
-```
-
-## 🤝 Contributing
-
-This is a custom CrossFit box application. For modifications or features:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📝 License
-
-This project is proprietary software for your CrossFit box.
-
-## 🆘 Support
-
-For issues or questions:
-- Check Firebase Console for backend errors
-- Review Flutter logs: `flutter logs`
-- Ensure all Firebase services are enabled
-- Verify Firestore security rules are configured
-
-## 🎨 Customization Tips
-
-1. **Add Your Logo**: Replace the fitness_center icon in login page with your logo
-2. **Box Name**: Update app name in `pubspec.yaml` and various pages
-3. **Colors**: Adjust yellow/black theme to match your brand
-4. **Badges**: Add custom badges in `badge_model.dart`
-5. **Workout Types**: Extend workout types in `workout_model.dart`
-
-## 📱 Screenshots
-
-*Add screenshots of your app here after running it*
-
-## 🏆 Credits
-
-Built with Flutter and Firebase for a modern CrossFit box experience.
+Cross-platform: works on **Windows** and **macOS**.
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2025
+## Features
 
-Happy training! 💪
+- Classic Polaroid layout with small top/side borders and a large bottom border for text
+- Automatically reads EXIF GPS data and reverse-geocodes it to **City, Country**
+- Automatically reads the date the photo was taken
+- Adapts orientation to match the photo (portrait or landscape)
+- 5 font styles to choose from (interactive menu or CLI flag)
+- Batch processes entire folders (thousands of photos)
+- Progress bar for large batches
+- Geocoding cache to avoid redundant API calls
+- Outputs print-ready 300 DPI JPEGs
+
+## Requirements
+
+- **Python 3.8+**
+- Dependencies listed in `requirements.txt`
+
+## Installation
+
+### Windows
+
+```powershell
+# 1. Install Python from https://www.python.org/downloads/ (check "Add to PATH")
+
+# 2. Open PowerShell or Command Prompt, navigate to this folder:
+cd path\to\this\folder
+
+# 3. (Optional) Create a virtual environment:
+python -m venv venv
+venv\Scripts\activate
+
+# 4. Install dependencies:
+pip install -r requirements.txt
+```
+
+### macOS
+
+```bash
+# 1. Install Python (if not already installed):
+brew install python
+
+# 2. Navigate to this folder:
+cd /path/to/this/folder
+
+# 3. (Optional) Create a virtual environment:
+python3 -m venv venv
+source venv/bin/activate
+
+# 4. Install dependencies:
+pip install -r requirements.txt
+```
+
+## Usage
+
+### Basic (interactive font selection)
+
+```bash
+python polaroid_formatter.py /path/to/your/photos
+```
+
+The script will:
+1. Show a font menu for you to choose a style
+2. Scan the folder for images
+3. Create Polaroid versions in a `polaroids/` subfolder
+
+### Specify output directory
+
+```bash
+python polaroid_formatter.py /path/to/photos -o /path/to/output
+```
+
+### Choose a font style directly (skip menu)
+
+```bash
+python polaroid_formatter.py /path/to/photos --font 1
+```
+
+### Process subdirectories recursively
+
+```bash
+python polaroid_formatter.py /path/to/photos --recursive
+```
+
+### Quick preview (process only the first image)
+
+```bash
+python polaroid_formatter.py /path/to/photos --preview
+```
+
+### All options combined
+
+```bash
+python polaroid_formatter.py /path/to/photos -o ./output --font 3 --recursive --quality 90
+```
+
+## Font Styles
+
+| # | Style                | Description                                    |
+|---|----------------------|------------------------------------------------|
+| 1 | Handwritten Elegant  | Flowing script, perfect for travel photos      |
+| 2 | Casual Handwriting   | Relaxed, informal handwritten style            |
+| 3 | Classic Serif        | Timeless, elegant serif for a refined look     |
+| 4 | Modern Sans-Serif    | Clean, contemporary minimalist feel            |
+| 5 | Typewriter           | Vintage typewriter for a nostalgic retro feel   |
+
+## Polaroid Layout
+
+```
++----------------------------+
+|         0.5 cm             |  <- top border
+|  +----------------------+  |
+|  |                      |  |
+|  |                      |  |
+|  |      YOUR PHOTO      |  |
+|  |                      |  |
+|  |                      |  |
+|  +----------------------+  |
+|                            |
+|   Lisbon, Portugal         |  <- 2.5 cm bottom border
+|        24 Dec 2024         |
+|                            |
++----------------------------+
+       10 cm (portrait)
+```
+
+- **Portrait**: 10 cm wide x 15 cm tall
+- **Landscape**: 15 cm wide x 10 cm tall
+- **Resolution**: 300 DPI (print quality)
+
+## How Location & Date Work
+
+The script reads **EXIF metadata** embedded in your photos:
+
+- **GPS coordinates** are reverse-geocoded using OpenStreetMap's Nominatim service into a human-readable "City, Country" format
+- **Date taken** is formatted as "DD Mon YYYY" (e.g., "24 Dec 2024")
+- Results are cached locally so the same GPS area is only looked up once
+- If no EXIF data is found, the Polaroid is still created but without text
+
+> **Note**: Photos taken with some apps or that have been edited/shared may have their EXIF data stripped. The original camera photos usually have full metadata.
+
+## Supported Image Formats
+
+JPG, JPEG, PNG, TIFF, BMP, WebP, HEIC, HEIF
+
+> **Note**: HEIC/HEIF support requires the `pillow-heif` package: `pip install pillow-heif`
+
+## CLI Reference
+
+```
+usage: polaroid_formatter.py [-h] [-o OUTPUT] [--font 1-5] [-r]
+                              [--quality QUALITY] [--preview]
+                              input_dir
+
+positional arguments:
+  input_dir             Directory containing photos to process
+
+options:
+  -h, --help            show this help message and exit
+  -o, --output OUTPUT   Output directory (default: <input_dir>/polaroids)
+  --font 1-5            Font style number. Omit to see the interactive menu.
+  -r, --recursive       Also process images in subdirectories
+  --quality QUALITY     JPEG output quality 1-100 (default: 95)
+  --preview             Process only the first image (quick preview)
+```
