@@ -134,34 +134,60 @@ FONT_OPTIONS = [
 # =============================================================================
 
 def get_exif_data(image):
-    """Extract EXIF data from a PIL Image."""
+    """Extract EXIF data from a PIL Image using the modern public API."""
     exif_data = {}
     try:
-        info = image._getexif()
-        if info:
-            for tag_id, value in info.items():
-                tag = TAGS.get(tag_id, tag_id)
-                if tag == "GPSInfo":
-                    gps_data = {}
-                    for gps_tag_id, gps_value in value.items():
-                        gps_tag = GPSTAGS.get(gps_tag_id, gps_tag_id)
-                        gps_data[gps_tag] = gps_value
-                    exif_data[tag] = gps_data
-                else:
-                    exif_data[tag] = value
-    except (AttributeError, IndexError, KeyError, TypeError):
+        exif = image.getexif()
+        if not exif:
+            return exif_data
+
+        for tag_id, value in exif.items():
+            tag = TAGS.get(tag_id, tag_id)
+            exif_data[tag] = value
+
+        # GPS lives in a sub-IFD (tag 0x8825) and must be fetched separately
+        gps_ifd = exif.get_ifd(0x8825)
+        if gps_ifd:
+            gps_data = {}
+            for tag_id, value in gps_ifd.items():
+                tag = GPSTAGS.get(tag_id, tag_id)
+                gps_data[tag] = value
+            exif_data["GPSInfo"] = gps_data
+    except Exception:
         pass
     return exif_data
+
+
+def _to_float(val):
+    """Convert an EXIF value (IFDRational, tuple, int, float) to float."""
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        pass
+    # Handle (numerator, denominator) tuples
+    try:
+        if hasattr(val, "numerator") and hasattr(val, "denominator"):
+            return float(val.numerator) / float(val.denominator)
+    except (TypeError, ZeroDivisionError):
+        pass
+    try:
+        if isinstance(val, (tuple, list)) and len(val) == 2:
+            return float(val[0]) / float(val[1])
+    except (TypeError, ZeroDivisionError):
+        pass
+    return None
 
 
 def _dms_to_decimal(dms_value):
     """Convert GPS DMS (degrees, minutes, seconds) to decimal degrees."""
     try:
-        d = float(dms_value[0])
-        m = float(dms_value[1])
-        s = float(dms_value[2])
+        d = _to_float(dms_value[0])
+        m = _to_float(dms_value[1])
+        s = _to_float(dms_value[2])
+        if d is None or m is None or s is None:
+            return None
         return d + (m / 60.0) + (s / 3600.0)
-    except (TypeError, IndexError, ZeroDivisionError, ValueError):
+    except (TypeError, IndexError):
         return None
 
 
@@ -403,7 +429,7 @@ def _fit_text_font(draw, text, font_path, max_width, max_height):
 
 
 def create_polaroid(image_path, output_path, font_path, geocoding_cache,
-                    quality=95):
+                    quality=95, verbose=False):
     """Create a single Polaroid-style image.
 
     Returns (success: bool, info: str).
@@ -415,6 +441,15 @@ def create_polaroid(image_path, output_path, font_path, geocoding_cache,
 
     # --- Extract EXIF metadata BEFORE transpose (which strips EXIF) ------
     exif_data = get_exif_data(img)
+
+    if verbose:
+        name = os.path.basename(image_path)
+        has_gps = "GPSInfo" in exif_data
+        has_date = ("DateTimeOriginal" in exif_data or "DateTime" in exif_data)
+        print(f"  [{name}] EXIF keys: {list(exif_data.keys())}")
+        print(f"  [{name}] GPS found: {has_gps}, Date found: {has_date}")
+        if has_gps:
+            print(f"  [{name}] GPSInfo: {exif_data['GPSInfo']}")
 
     # Honour EXIF orientation
     try:
@@ -433,6 +468,11 @@ def create_polaroid(image_path, output_path, font_path, geocoding_cache,
         else None
     )
     date_taken = get_date_taken(exif_data)
+
+    if verbose:
+        print(f"  [{name}] GPS coords: {lat}, {lon}")
+        print(f"  [{name}] Location: {location}")
+        print(f"  [{name}] Date: {date_taken}")
 
     text_parts = []
     if location:
@@ -579,6 +619,11 @@ examples:
         action="store_true",
         help="Process only the first image (quick preview)",
     )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show detailed EXIF/metadata info for each image (debug)",
+    )
 
     args = parser.parse_args()
 
@@ -667,7 +712,7 @@ examples:
 
         ok, info = create_polaroid(
             str(image_path), str(out_path), font_path, geocoding_cache,
-            quality=args.quality,
+            quality=args.quality, verbose=args.verbose,
         )
 
         if ok:
