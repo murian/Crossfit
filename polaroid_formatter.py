@@ -40,6 +40,12 @@ try:
 except ImportError:
     TQDM_AVAILABLE = False
 
+try:
+    from staticmap import StaticMap, CircleMarker
+    STATICMAP_AVAILABLE = True
+except ImportError:
+    STATICMAP_AVAILABLE = False
+
 
 # =============================================================================
 # Constants
@@ -57,7 +63,15 @@ LANDSCAPE_HEIGHT = round(10 * CM_TO_INCH * DPI)  # 1181px
 # Classic Polaroid borders in pixels at 300 DPI
 BORDER_TOP = round(0.5 * CM_TO_INCH * DPI)       # ~59px
 BORDER_SIDE = round(0.5 * CM_TO_INCH * DPI)      # ~59px
-BORDER_BOTTOM = round(2.5 * CM_TO_INCH * DPI)    # ~295px
+BORDER_BOTTOM = round(3.2 * CM_TO_INCH * DPI)    # ~378px (room for mini-map)
+
+# Mini-map settings
+MAP_W = 220
+MAP_H = 165
+MAP_ZOOM = 11
+MAP_PADDING = round(0.2 * CM_TO_INCH * DPI)      # padding inside bottom border
+MAP_BORDER_PX = 2
+MAP_BORDER_COLOR = (210, 210, 210)
 
 # Supported image extensions
 SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp',
@@ -310,6 +324,44 @@ class GeocodingCache:
 
 
 # =============================================================================
+# Mini-Map Generation
+# =============================================================================
+
+# In-memory cache: rounded coords -> PIL Image
+_map_cache = {}
+
+
+def _generate_map(lat, lon):
+    """Return a small PIL Image with a map centered on (lat, lon), or None."""
+    if not STATICMAP_AVAILABLE:
+        return None
+
+    cache_key = f"{lat:.2f},{lon:.2f}"
+    if cache_key in _map_cache:
+        return _map_cache[cache_key].copy()
+
+    try:
+        m = StaticMap(MAP_W, MAP_H)
+        marker = CircleMarker((lon, lat), "#e74c3c", 8)
+        m.add_marker(marker)
+        map_img = m.render(zoom=MAP_ZOOM)
+        map_img = map_img.convert("RGB")
+        _map_cache[cache_key] = map_img
+        return map_img.copy()
+    except Exception:
+        return None
+
+
+def _add_map_border(map_img):
+    """Return a new image with a thin border drawn around *map_img*."""
+    w, h = map_img.size
+    bordered = Image.new("RGB", (w + 2 * MAP_BORDER_PX, h + 2 * MAP_BORDER_PX),
+                         MAP_BORDER_COLOR)
+    bordered.paste(map_img, (MAP_BORDER_PX, MAP_BORDER_PX))
+    return bordered
+
+
+# =============================================================================
 # Font Resolution
 # =============================================================================
 
@@ -516,22 +568,74 @@ def create_polaroid(image_path, output_path, font_path, geocoding_cache,
     canvas = Image.new("RGB", (canvas_w, canvas_h), BG_COLOR)
     canvas.paste(img, (BORDER_SIDE, BORDER_TOP))
 
-    # --- Draw text -------------------------------------------------------
-    if text:
-        draw = ImageDraw.Draw(canvas)
+    # --- Draw bottom area: map + text ------------------------------------
+    map_img = None
+    if lat is not None and lon is not None:
+        map_img = _generate_map(lat, lon)
+        if map_img is not None:
+            map_img = _add_map_border(map_img)
 
-        max_text_h = int(BORDER_BOTTOM * 0.40)
+    draw = ImageDraw.Draw(canvas)
+    bottom_top = canvas_h - BORDER_BOTTOM  # y where bottom border starts
+
+    if map_img is not None and text:
+        # Layout: map on the left, text (location line + date line) on right
+        mw, mh = map_img.size
+        map_x = BORDER_SIDE + MAP_PADDING
+        map_y = bottom_top + (BORDER_BOTTOM - mh) // 2
+        canvas.paste(map_img, (map_x, map_y))
+
+        # Text area is to the right of the map
+        text_area_left = map_x + mw + MAP_PADDING
+        text_area_right = canvas_w - BORDER_SIDE - MAP_PADDING
+        text_area_w = text_area_right - text_area_left
+
+        # Draw location and date as separate lines
+        loc_str = location or ""
+        date_str = date_taken or ""
+
+        # Fit location font
+        max_line_h = int(BORDER_BOTTOM * 0.22)
+        loc_font = _fit_text_font(draw, loc_str, font_path,
+                                  text_area_w, max_line_h) if loc_str else None
+        date_font = _fit_text_font(draw, date_str, font_path,
+                                   text_area_w, max_line_h) if date_str else None
+
+        # Measure
+        lines = []
+        if loc_str and loc_font:
+            bb = draw.textbbox((0, 0), loc_str, font=loc_font)
+            lines.append((loc_str, loc_font, bb[2] - bb[0], bb[3] - bb[1]))
+        if date_str and date_font:
+            bb = draw.textbbox((0, 0), date_str, font=date_font)
+            lines.append((date_str, date_font, bb[2] - bb[0], bb[3] - bb[1]))
+
+        line_gap = 10
+        total_text_h = sum(l[3] for l in lines) + line_gap * (len(lines) - 1)
+        cur_y = bottom_top + (BORDER_BOTTOM - total_text_h) // 2
+
+        for txt, fnt, tw, th in lines:
+            tx = text_area_left + (text_area_w - tw) // 2
+            draw.text((tx, cur_y), txt, fill=TEXT_COLOR, font=fnt)
+            cur_y += th + line_gap
+
+    elif map_img is not None:
+        # Map only, no text - center the map
+        mw, mh = map_img.size
+        map_x = (canvas_w - mw) // 2
+        map_y = bottom_top + (BORDER_BOTTOM - mh) // 2
+        canvas.paste(map_img, (map_x, map_y))
+
+    elif text:
+        # Text only, no map - center text
+        max_text_h = int(BORDER_BOTTOM * 0.35)
         max_text_w = int(photo_w * 0.95)
-
         font = _fit_text_font(draw, text, font_path, max_text_w, max_text_h)
-
         bbox = draw.textbbox((0, 0), text, font=font)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
-
         text_x = (canvas_w - tw) // 2
-        text_y = canvas_h - BORDER_BOTTOM + (BORDER_BOTTOM - th) // 2
-
+        text_y = bottom_top + (BORDER_BOTTOM - th) // 2
         draw.text((text_x, text_y), text, fill=TEXT_COLOR, font=font)
 
     # --- Save ------------------------------------------------------------
