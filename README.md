@@ -8,14 +8,14 @@ Cross-platform: works on **Windows** and **macOS**.
 
 ## Features
 
-- Classic Polaroid layout with small top/side borders and a large bottom border for text
-- Automatically reads EXIF GPS data and reverse-geocodes it to **City, Country**
-- Automatically reads the date the photo was taken
+- Classic Polaroid layout with small top/side borders and a large bottom border
+- **Mini-map** with a red pin showing where the photo was taken (OpenStreetMap tiles)
+- **City, Country** name + **date** displayed next to the map
 - Adapts orientation to match the photo (portrait or landscape)
 - 5 font styles to choose from (interactive menu or CLI flag)
 - Batch processes entire folders (thousands of photos)
 - Progress bar for large batches
-- Geocoding cache to avoid redundant API calls
+- Geocoding + map tile caching for fast repeat processing
 - Outputs print-ready 300 DPI JPEGs
 
 ## Requirements
@@ -114,26 +114,30 @@ python polaroid_formatter.py /path/to/photos -o ./output --font 3 --recursive --
 ## Polaroid Layout
 
 ```
-+----------------------------+
-|         0.5 cm             |  <- top border
-|  +----------------------+  |
-|  |                      |  |
-|  |                      |  |
-|  |      YOUR PHOTO      |  |
-|  |                      |  |
-|  |                      |  |
-|  +----------------------+  |
-|                            |
-|   Lisbon, Portugal         |  <- 2.5 cm bottom border
-|        24 Dec 2024         |
-|                            |
-+----------------------------+
-       10 cm (portrait)
++----------------------------------+
+|            0.5 cm                |  <- top border
+|  +----------------------------+  |
+|  |                            |  |
+|  |                            |  |
+|  |         YOUR PHOTO         |  |
+|  |                            |  |
+|  |                            |  |
+|  +----------------------------+  |
+|                                  |
+|  +---------+  Lisbon, Portugal   |  <- 3.2 cm bottom border
+|  |   MAP   |  24 Dec 2024       |     with mini-map + text
+|  |   pin   |                     |
+|  +---------+                     |
+|                                  |
++----------------------------------+
+          10 cm (portrait)
 ```
 
 - **Portrait**: 10 cm wide x 15 cm tall
 - **Landscape**: 15 cm wide x 10 cm tall
 - **Resolution**: 300 DPI (print quality)
+- When GPS is available, a small OpenStreetMap map with a red pin is shown
+- When GPS is missing, only the date text is shown (centered)
 
 ## How Location & Date Work
 
